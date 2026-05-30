@@ -1,116 +1,126 @@
-# colossusbundi
+# ColossusBundi
 
-`colossusbundi` is a real self-hosted infrastructure project built on an old Ryzen laptop running Ubuntu Server.
+ColossusBundi is a self-hosted personal cloud and automation platform built and operated by student engineer, pursuing undergrad at IIT DELHI. It started on an old Windows laptop during some free time over summers and gradually turned into a practical systems project for learning infrastructure design, remote operations, networking, service automation, and observability under real constraints.
 
-The core goal was practical: make media requestable remotely, move it through an automated download pipeline, and stream it reliably to a TV-based Jellyfin setup while learning Linux, Docker, networking, and remote access by doing the work end to end.
+The project is intentionally small and hands-on. The value is not in claiming scale; it is in showing the ability to take a machine from bare-metal installation to a remotely administered, monitored, service-hosting platform with repeatable configuration, persistent storage, and documented operational tradeoffs.
 
-This repository is intentionally documented like an engineering project, not a template. It captures what was actually built, what broke, what got refactored, and what still needs cleanup before the full sanitized compose/config exports are committed.
 
-## What’s Running
+Key outcomes summarized:
+- Self-hosted personal cloud
+- Secure remote administration from anywhere
+- Automated media delivery workflow
+- Public service exposure despite CGNAT
+- Monitoring and alerting
+- Hands-on networking and infrastructure experience
 
-### Media pipeline
-- Jellyfin
-- Jellyseerr
-- Radarr
-- Sonarr
-- Prowlarr
-- qBittorrent
+## Overview
 
-### Access and networking
-- Tailscale for remote SSH and private access
-- NGINX reverse proxy for local service routing
-- WireGuard experimentation for self-managed VPN access
-- Cloudflare Tunnel as a planned next step for safer remote publishing
+The platform combines three main concerns:
 
-### Monitoring and dashboards
-- Homepage
-- Glance
-- Uptime Kuma
+- infrastructure and remote access for a headless Ubuntu host
+- service orchestration for a personal cloud and automation stack
+- operational tooling for uptime visibility, alerting, and debugging
 
-### Local AI
-- Ollama with lightweight local models
+The host runs Docker Compose workloads for media-serving, request automation, dashboards, and monitoring. Remote administration is handled through SSH and Tailscale, while Cloudflare Tunnel is used to expose selected services publicly without direct port forwarding. Nginx Proxy Manager provides internal routing and simpler hostname management.
 
-## Why This Repo Matters
+## Architecture
 
-- It is based on a real deployment on constrained consumer hardware, not cloud-only infra.
-- It includes operational lessons from Wi-Fi bootstrap pain, CGNAT limitations, reverse proxy debugging, container persistence mistakes, and VPN misconfiguration.
-- The system serves actual users and devices, including TV playback through Jellyfin.
-- The repo is structured to show engineering judgment: what was automated, what remained manual, what failed, and what was learned.
+```mermaid
+flowchart LR
+    user[Remote User] --> dns[Cloudflare DNS]
+    dns --> tunnel[Cloudflare Tunnel]
+    user --> tail[Tailscale / SSH]
+    tail --> host[Ubuntu Laptop Server]
+    tunnel --> npm[Nginx Proxy Manager]
+    host --> npm
 
-## Current Architecture
+    subgraph Services
+        home[Homepage]
+        kuma[Uptime Kuma]
+        glances[Glances]
+        jellyseerr[Jellyseerr]
+        sonarr[Sonarr]
+        radarr[Radarr]
+        prowlarr[Prowlarr]
+        qb[qBittorrent]
+        jellyfin[Jellyfin]
+        ollama[Ollama + Gemma 2B]
+    end
 
-High-level flow:
+    npm --> home
+    npm --> kuma
+    npm --> glances
+    npm --> jellyseerr
+    npm --> jellyfin
 
-1. A user requests media in Jellyseerr.
-2. Jellyseerr hands off to Radarr or Sonarr.
-3. Radarr or Sonarr uses Prowlarr indexers and sends downloads to qBittorrent.
-4. Completed downloads are organized into the media library.
-5. Jellyfin scans the library and serves playback to clients, including a Fire TV setup.
+    jellyseerr --> sonarr
+    jellyseerr --> radarr
+    sonarr --> prowlarr
+    radarr --> prowlarr
+    sonarr --> qb
+    radarr --> qb
+    qb --> jellyfin
 
-Supporting layers:
-
-- Docker Compose for service orchestration
-- `/opt` for service/application state
-- `/mnt` for persistent media data
-- Tailscale and SSH for remote administration
-- NGINX for local reverse proxying
-- Homepage/Glance/Uptime Kuma for visibility
-
-More detail: [docs/architecture/stack-overview.md](/Users/pranay/colossusbundi/docs/architecture/stack-overview.md)
-
-## Repository Status
-
-The repository structure is ready, but the actual compose manifests and configs have not been fully exported into Git yet.
-
-That is deliberate for now:
-
-- secrets and private network details need sanitization
-- some production paths and hostnames still need cleanup
-- the system was refactored live, so the documented shape is ahead of the committed manifests
-
-Until those sanitized exports are added, this repo focuses on architecture, setup decisions, operational notes, and troubleshooting history grounded in the actual build process.
-
-## Repository Layout
-
-```txt
-compose/
-  media-stack/      Compose files for Jellyfin/Jellyseerr/Radarr/Sonarr/Prowlarr/qBittorrent
-  monitoring/       Compose files for Homepage/Glance/Uptime Kuma
-  networking/       Reverse proxy and tunnel-related manifests
-  ai-stack/         Ollama and local inference experiments
-configs/            Sanitized service configs and reverse proxy snippets
-docs/
-  architecture/     System layout and service relationships
-  setup/            Bootstrap and deployment notes
-  timeline/         Build history reconstructed from dated notes
-  troubleshooting/  Real incidents, causes, and fixes
-  future-plans/     Next improvements with realistic scope
-diagrams/           Mermaid and diagram assets
-screenshots/        Exported UI or terminal screenshots
-scripts/            Utility scripts
-assets/             Images and presentation assets
+    kuma --> alert[Telegram Alerts]
+    glances --> alert
 ```
 
-## Best Docs To Read First
+More detail is in [architecture/architecture.mmd](/Users/pranay/colossusbundi/architecture/architecture.mmd) and [docs/media-pipeline.md](/Users/pranay/colossusbundi/docs/media-pipeline.md).
 
-- [Stack overview](/Users/pranay/colossusbundi/docs/architecture/stack-overview.md)
-- [Server bootstrap notes](/Users/pranay/colossusbundi/docs/setup/server-bootstrap.md)
-- [Build timeline](/Users/pranay/colossusbundi/docs/timeline/build-log.md)
-- [WireGuard and CGNAT notes](/Users/pranay/colossusbundi/docs/troubleshooting/cgnat-wireguard.md)
-- [Media pipeline incidents](/Users/pranay/colossusbundi/docs/troubleshooting/media-pipeline.md)
+## Key Features
 
-## What Was Learned
+- Headless Ubuntu server installation and recovery on consumer hardware
+- Remote administration through SSH, Tailscale, and Cloudflare Tunnel
+- Containerized service layout split by function: infrastructure, media, and monitoring
+- Persistent data model using `/opt` for service config and `/mnt` for durable media/data
+- Reverse proxy routing with private hostnames and public tunnel-backed exposure
+- Monitoring with Uptime Kuma, Glances, Homepage, and Telegram alerts
+- Troubleshooting records covering Wi-Fi setup, LVM expansion, WireGuard debugging, CGNAT, and Docker persistence
 
-- Ubuntu Server on minimal install often needs explicit networking work before it becomes pleasant to operate remotely.
-- Compose files are only half the story; mount layout and persistent storage boundaries matter just as much.
-- Reverse proxies and private networking are easy to make partially work and harder to make understandable.
-- Under constrained hardware, observability and thermal awareness matter even for small local AI experiments.
-- Rebuilding from clean state is sometimes faster than debugging corrupted runtime state.
+## Technology Stack
 
-## Next Additions
+- OS and base system: Ubuntu Server, Linux, systemd, LVM
+- Networking: SSH, Tailscale, WireGuard, Cloudflare DNS, Cloudflare Tunnel
+- Reverse proxy and access: Nginx Proxy Manager
+- Orchestration: Docker Compose
+- Media and request automation: Jellyfin, Jellyseerr, Sonarr, Radarr, Prowlarr, qBittorrent
+- Monitoring and operations: Homepage, Glances, Uptime Kuma, Telegram alerting
+- Experiments: Ollama, Gemma 2B local inference
 
-- Commit sanitized compose manifests for each stack
-- Add sanitized NGINX examples and tunnel configs
-- Document backup and restore strategy
-- Add service dependency diagrams tied directly to real manifests
-- Export a small set of screenshots into `screenshots/` for the public repo
+## Networking & Remote Access
+
+One of the most useful parts of the project was learning how to operate a machine that was not always physically accessible. Initial setup required fixing Wi-Fi on a minimal Ubuntu installation, moving from temporary USB tethering to proper NetworkManager control, and handling a headless laptop that could not be allowed to suspend on lid close.
+
+For private management, Tailscale became the most reliable path for SSH and day-to-day administration. WireGuard was tested directly as a way to understand the lower-level VPN workflow, including peer definitions, key handling, interface state, and handshake debugging. Public exposure ran into CGNAT constraints, so Cloudflare Tunnel became the practical answer for HTTPS-backed access without router port forwarding.
+
+## Monitoring & Operations
+
+The repository is designed to show operational ownership, not just service installation. Monitoring is split into service visibility, host visibility, and alerting:
+
+- Uptime Kuma checks internal and public service availability
+- Glances tracks host-level CPU, memory, load, and thermal behavior
+- Homepage gives a single operational entrypoint for links and status
+- Telegram alerting provides low-friction notifications for failures
+
+This combination made it easier to catch basic failure modes such as containers not auto-starting after reboot, services breaking after storage refactors, and reverse proxy issues during hostname or DNS changes.
+
+## Engineering Challenges & Lessons Learned
+
+- CGNAT blocked straightforward inbound networking. The workaround was to stop fighting port forwarding and move public exposure to Cloudflare Tunnel.
+- WireGuard debugging took multiple iterations. A misleading `SaveConfig=true` setting and bad key state caused configuration drift until the tunnel was rebuilt cleanly.
+- Docker persistence was fragile early on because config and data paths were not separated clearly. Refactoring into `/opt` and `/mnt` made service rebuilds predictable.
+- Reverse proxy setup was easy to get mostly working and harder to make consistent. Internal hostnames, DNS overrides, and service-specific assumptions all had to line up.
+- Headless Linux administration on a laptop required dealing with lid-close behavior, display blanking, TTY-only operation, and the reality that a suspended machine cannot be recovered remotely.
+
+These are covered in more detail in [docs/networking.md](/Users/pranay/colossusbundi/docs/networking.md), [docs/cloudflare-tunnel.md](/Users/pranay/colossusbundi/docs/cloudflare-tunnel.md), [docs/monitoring.md](/Users/pranay/colossusbundi/docs/monitoring.md), and [docs/lessons-learned.md](/Users/pranay/colossusbundi/docs/lessons-learned.md).
+
+## Future Roadmap
+
+- Add configuration backups and restore testing for `/opt` and Compose files
+- Add cleaner secret management for tokens, API keys, and tunnel credentials
+- Replace ad hoc local DNS experiments with a more durable internal naming approach
+- Document recovery runbooks for host replacement or disk migration
+- Expand monitoring with disk-usage alerts and container-level log shipping
+- Keep local inference experiments isolated so they do not impact core platform stability
+
+ColossusBundi is best read as a working lab notebook turned into an infrastructure portfolio repository: a small but real system that had to be installed, debugged, reorganized, exposed safely, and kept running.

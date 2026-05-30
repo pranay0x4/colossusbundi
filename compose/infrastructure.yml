@@ -1,0 +1,64 @@
+version: "3.9"
+
+services:
+  nginx-proxy-manager:
+    image: jc21/nginx-proxy-manager:latest
+    container_name: nginx-proxy-manager
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "81:81"
+      - "443:443"
+    environment:
+      TZ: Asia/Kolkata
+    volumes:
+      - /opt/services/npm/data:/data
+      - /opt/services/npm/letsencrypt:/etc/letsencrypt
+    networks:
+      - edge
+
+  homepage:
+    image: ghcr.io/gethomepage/homepage:latest
+    container_name: homepage
+    restart: unless-stopped
+    environment:
+      HOMEPAGE_ALLOWED_HOSTS: home.colossusbundi.local,homepage.local
+      PUID: "1000"
+      PGID: "1000"
+      TZ: Asia/Kolkata
+    volumes:
+      - /opt/services/homepage/config:/app/config
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - edge
+      - ops
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared
+    restart: unless-stopped
+    command: tunnel --config /etc/cloudflared/config.yml run
+    volumes:
+      - /opt/services/cloudflared:/etc/cloudflared:ro
+    networks:
+      - edge
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    restart: unless-stopped
+    environment:
+      OLLAMA_KEEP_ALIVE: "5m"
+      TZ: Asia/Kolkata
+    volumes:
+      - /opt/services/ollama:/root/.ollama
+    ports:
+      - "11434:11434"
+    networks:
+      - ops
+
+networks:
+  edge:
+    name: colossusbundi_edge
+  ops:
+    name: colossusbundi_ops

@@ -1,0 +1,45 @@
+version: "3.9"
+
+services:
+  glances:
+    image: nicolargo/glances:latest-full
+    container_name: glances
+    restart: unless-stopped
+    pid: host
+    network_mode: host
+    environment:
+      GLANCES_OPT: "-w"
+      TZ: Asia/Kolkata
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /opt/services/glances:/glances/conf
+
+  uptime-kuma:
+    image: louislam/uptime-kuma:latest
+    container_name: uptime-kuma
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    volumes:
+      - /opt/services/uptime-kuma:/app/data
+    networks:
+      - ops
+      - edge
+
+  telegram-alert-runner:
+    image: alpine:3.20
+    container_name: telegram-alert-runner
+    restart: unless-stopped
+    command: ["/bin/sh", "-c", "chmod +x /scripts/temp_alert.sh && sleep infinity"]
+    volumes:
+      - ../scripts:/scripts:ro
+    networks:
+      - ops
+
+networks:
+  ops:
+    external: true
+    name: colossusbundi_ops
+  edge:
+    external: true
+    name: colossusbundi_edge
