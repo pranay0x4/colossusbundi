@@ -7,7 +7,7 @@ if [ "${TELEGRAM_BOT_TOKEN:-}" = "" ] || [ "${TELEGRAM_CHAT_ID:-}" = "" ]; then
   exit 1
 fi
 
-MESSAGE="${1:-ColossusBundi alert test}"
+MESSAGE="${1:-ColossusBundi Temp alert}"
 HOSTNAME_VALUE="$(hostname)"
 TIMESTAMP="$(date '+%Y-%m-%d %H:%M:%S %Z')"
 

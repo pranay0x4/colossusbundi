@@ -11,6 +11,7 @@ Key outcomes summarized:
 - Automated media delivery workflow
 - Public service exposure despite CGNAT
 - Monitoring and alerting
+- AI-assisted infrastructure workflows through Telegram and OpenCode CLI
 - Hands-on networking and infrastructure experience
 
 ## Overview
@@ -20,8 +21,9 @@ The platform combines three main concerns:
 - infrastructure and remote access for a headless Ubuntu host
 - service orchestration for a personal cloud and automation stack
 - operational tooling for uptime visibility, alerting, and debugging
+- an AI-assisted operations layer for diagnostics, maintenance, and remote workflows
 
-The host runs Docker Compose workloads for media-serving, request automation, dashboards, and monitoring. Remote administration is handled through SSH and Tailscale, while Cloudflare Tunnel is used to expose selected services publicly without direct port forwarding. Nginx Proxy Manager provides internal routing and simpler hostname management.
+The host runs Docker Compose workloads for media-serving, request automation, dashboards, monitoring, and AI-assisted operations. Remote administration is handled through SSH and Tailscale, while Cloudflare Tunnel is used to expose selected services publicly without direct port forwarding. Nginx Proxy Manager provides internal routing and simpler hostname management. OpenCode CLI on the Ubuntu server connects to OpenRouter APIs and acts as an infrastructure assistant for alert triage, diagnostics, maintenance tasks, and remote operational workflows through Telegram.
 
 ## Architecture
 
@@ -30,6 +32,10 @@ flowchart LR
     user[Remote User] --> dns[Cloudflare DNS]
     dns --> tunnel[Cloudflare Tunnel]
     user --> tail[Tailscale / SSH]
+    admin[Admin] --> telegram[Telegram]
+    telegram --> opencode[OpenCode Agent]
+    opencode --> openrouter[OpenRouter]
+    openrouter --> host
     tail --> host[Ubuntu Laptop Server]
     tunnel --> npm[Nginx Proxy Manager]
     host --> npm
@@ -63,9 +69,14 @@ flowchart LR
 
     kuma --> alert[Telegram Alerts]
     glances --> alert
+    host --> opencode
 ```
 
 More detail is in [architecture/architecture.mmd](/Users/pranay/colossusbundi/architecture/architecture.mmd) and [docs/media-pipeline.md](/Users/pranay/colossusbundi/docs/media-pipeline.md).
+
+The architecture now also includes an AI-assisted operations path:
+
+`Admin -> Telegram -> OpenCode Agent -> OpenRouter -> Ubuntu Server -> Infrastructure`
 
 ## Key Features
 
@@ -75,6 +86,7 @@ More detail is in [architecture/architecture.mmd](/Users/pranay/colossusbundi/ar
 - Persistent data model using `/opt` for service config and `/mnt` for durable media/data
 - Reverse proxy routing with private hostnames and public tunnel-backed exposure
 - Monitoring with Uptime Kuma, Glances, Homepage, and Telegram alerts
+- AI-assisted operations through OpenCode CLI, OpenRouter, and Telegram-driven diagnostics
 - Troubleshooting records covering Wi-Fi setup, LVM expansion, WireGuard debugging, CGNAT, and Docker persistence
 
 ## Technology Stack
@@ -85,6 +97,7 @@ More detail is in [architecture/architecture.mmd](/Users/pranay/colossusbundi/ar
 - Orchestration: Docker Compose
 - Media and request automation: Jellyfin, Jellyseerr, Sonarr, Radarr, Prowlarr, qBittorrent
 - Monitoring and operations: Homepage, Glances, Uptime Kuma, Telegram alerting
+- AI operations: OpenCode CLI, OpenRouter APIs, Telegram-based admin workflows
 - Experiments: Ollama, Gemma 2B local inference
 
 ## Networking & Remote Access
@@ -103,6 +116,24 @@ The repository is designed to show operational ownership, not just service insta
 - Telegram alerting provides low-friction notifications for failures
 
 This combination made it easier to catch basic failure modes such as containers not auto-starting after reboot, services breaking after storage refactors, and reverse proxy issues during hostname or DNS changes.
+
+## AI-Assisted Operations Layer
+
+ColossusBundi now includes OpenCode CLI running on the Ubuntu server and connected to OpenRouter APIs. This is not a user-facing chatbot. It is an AI-assisted operations layer used to support infrastructure management, incident handling, and routine maintenance.
+
+Current capabilities include:
+
+- receiving infrastructure context from the server
+- analyzing monitoring alerts and system issues
+- investigating logs and configuration problems
+- explaining likely root causes in plain English
+- suggesting remediation steps
+- executing approved commands on the server
+- assisting with Docker, service management, deployment, and updates
+- generating operational summaries
+- continuing long-running server-side tasks even when the admin workstation is offline
+
+Telegram is the primary operations interface. Alerts, diagnostics, status checks, and remote admin workflows can be handled from a mobile device without exposing direct shell access as the first interface. In practice, this adds a lightweight operational control plane on top of the existing monitoring and remote access stack rather than replacing SSH, Tailscale, or standard debugging workflows.
 
 ## Engineering Challenges & Lessons Learned
 
