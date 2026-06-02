@@ -25,50 +25,7 @@ My setup does a few main things:
 
 ## Architecture
 
-```mermaid
-flowchart LR
-    user[Remote User] --> dns[Cloudflare DNS]
-    dns --> tunnel[Cloudflare Tunnel]
-    user --> tail[Tailscale / SSH]
-    admin[Admin] --> telegram[Telegram]
-    telegram --> opencode[OpenCode Agent]
-    opencode --> openrouter[OpenRouter]
-    openrouter --> host
-    tail --> host[Ubuntu Laptop Server]
-    tunnel --> npm[Nginx Proxy Manager]
-    host --> npm
-    
-    subgraph Services
-        home[Homepage]
-        kuma[Uptime Kuma]
-        glances[Glances]
-        jellyseerr[Jellyseerr]
-        sonarr[Sonarr]
-        radarr[Radarr]
-        prowlarr[Prowlarr]
-        qb[qBittorrent]
-        jellyfin[Jellyfin]
-        ollama[Ollama + Gemma 2B]
-    end
-
-    npm --> home
-    npm --> kuma
-    npm --> glances
-    npm --> jellyseerr
-    npm --> jellyfin
-
-    jellyseerr --> sonarr
-    jellyseerr --> radarr
-    sonarr --> prowlarr
-    radarr --> prowlarr
-    sonarr --> qb
-    radarr --> qb
-    qb --> jellyfin
-
-    kuma --> alert[Telegram Alerts]
-    glances --> alert
-    host --> opencode
-```
+![Architecture](./architecture/architecture.png)
 
 More details can be found in the [architecture folder](architecture/) and the [docs](docs/) directory.
 
