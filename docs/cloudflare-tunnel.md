@@ -1,60 +1,47 @@
 # Cloudflare Tunnel
 
-## Why It Was Needed
+## Why I Needed It
 
-Direct public access ran into the usual home-network problems:
+Exposing services from a home network is always a pain. I ran into a few main issues:
+- **CGNAT:** My ISP puts my home connection behind carrier-grade NAT, which means I don't get a real public IP address.
+- **Port Forwarding:** Even if I could port forward on the home router, it feels sketchy security-wise and is annoying to configure.
+- **Dynamic IP:** Home IPs change all the time, which means DNS records would keep breaking.
 
-- CGNAT prevented straightforward inbound exposure
-- router-level changes alone were not enough
-- manually opening ports would still have left a rough operational setup
+Cloudflare Tunnel solved all of this. It lets me expose specific local services to the internet over HTTPS without opening any ports on my router.
 
-Cloudflare Tunnel solved the practical problem: expose selected services over HTTPS without depending on public inbound reachability from the ISP.
+---
 
-## Deployment Flow
+## How I Set It Up
 
-The working sequence was:
+Here's the process I followed to get it running:
+1. **Domain Name:** Registered a domain and pointed its nameservers to Cloudflare.
+2. **Installation:** Installed the `cloudflared` client on my Ubuntu laptop server.
+3. **Authentication:** Logged into my Cloudflare account via the CLI to link the server.
+4. **Configuration:** Created a tunnel and wrote a local configuration file to map my domain name to internal services.
+5. **Systemd Service:** Enabled `cloudflared` as a system service so the tunnel starts up automatically whenever the laptop boots.
 
-1. register a domain and move nameservers to Cloudflare
-2. install `cloudflared` on the Ubuntu host
-3. authenticate the tunnel against the Cloudflare account
-4. create the tunnel and its local configuration file
-5. map public hostnames to internal service destinations
-6. run the tunnel as a persistent system service
+---
 
-This made the tunnel part of the host's startup behavior rather than a manual command.
+## Where It Fits in My Setup
 
-## Role in the Architecture
+The tunnel only handles public HTTPS traffic. I don't route everything through it:
+- **Tailscale** is still my go-to for secure SSH and managing the server. I don't expose any admin consoles publicly.
+- **Nginx Proxy Manager** handles internal routing. The tunnel forwards traffic to the proxy, which then routes it to the correct Docker container.
+- **Cloudflare Tunnel** acts as a secure entry point for my public-facing services (like letting my friends request movies via Jellyseerr).
 
-Cloudflare Tunnel is only the public edge. It does not replace internal routing or private administration.
+---
 
-- Tailscale remains the preferred path for SSH and private maintenance
-- Nginx Proxy Manager remains the service router for internal hostname-based access
-- Cloudflare Tunnel provides a controlled bridge from public DNS to selected internal services
+## Stuff That Broke / Challenges
 
-## Problems Encountered
+It wasn't all smooth sailing. A few things tripped me up:
+- **Setup Confusion:** Got confused between managing the tunnel configuration locally in a YAML file versus doing it through the Cloudflare Zero Trust web UI. I ended up sticking to local config files because it felt more like "real" infrastructure-as-code.
+- **DNS Mapping Errors:** Messed up a few DNS records at first, which took a while to debug because of caching.
+- **App-Specific Redirects:** Some services tried to redirect to `http` or custom subpaths, which threw 502/504 errors behind the tunnel until I fixed the headers in Nginx Proxy Manager.
 
-The tunnel setup was not completely linear. Issues included:
+The biggest thing I learned: **A running tunnel only means Cloudflare can talk to your server, not that your app is actually working.** I had to learn to debug the app logs and tunnel logs separately.
 
-- slow or confusing initial setup flow while switching between local and web-side authorization
-- DNS routing mistakes during hostname mapping
-- service-specific HTTPS or redirect behavior that did not immediately cooperate behind the tunnel
+---
 
-One useful lesson was to separate tunnel health from application health. A running tunnel only proves connectivity to the edge, not that the upstream service is behaving correctly.
+## Trade-offs
 
-## Security and Tradeoffs
-
-The tunnel reduced exposure by avoiding broad inbound port forwarding, but it also introduced another dependency layer. For a personal platform, that tradeoff was reasonable:
-
-- easier remote publishing
-- simpler TLS handling
-- less router dependence
-
-The cost is added reliance on an external control plane and a need to document which services should remain private versus which may be published.
-
-## Current Operating Model
-
-- private access: SSH over Tailscale
-- public access: Cloudflare Tunnel to selected HTTP services
-- local routing: Nginx Proxy Manager
-
-That separation of responsibilities made the overall system easier to reason about than trying to force every access pattern through one networking tool.
+Using a tunnel is great because it makes TLS (SSL certificates) super simple and keeps my home network hidden. But the downside is that I'm fully dependent on Cloudflare. If their service goes down, or if they change their free tier, I'll have to find another solution. For a personal project, though, this trade-off is 100% worth it.

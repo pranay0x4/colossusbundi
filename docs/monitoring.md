@@ -1,64 +1,51 @@
 # Monitoring
 
-## Monitoring Goals
+## Why Monitor?
 
-The goal was not full observability tooling with metrics pipelines and long retention. The goal was to answer three practical questions quickly:
+I didn't want to build a complex monitoring stack with massive databases and long-term charts. I just wanted to answer three simple questions:
+1. Is my server actually turned on?
+2. Are my apps running and reachable?
+3. Will I get notified if something breaks while I'm away?
 
-- Is the host alive?
-- Are the important services reachable?
-- Will I notice failures when I am away from the machine?
+---
 
-## Components
+## What I'm Using
 
-### Homepage
+### Homepage (My Dashboard)
+This is a simple start page that displays links to all my apps in one place. It also connects to their APIs to show basic status information. It prevents me from having to open a dozen browser tabs just to check if things are okay.
 
-Homepage acts as the operator dashboard. It provides one page for links, service entrypoints, and basic status visibility. Its value is operational convenience: fewer tabs, faster context switching, and a simpler daily control surface.
+### Glances (Hardware Stats)
+Glances runs on the host and monitors CPU, RAM, disk read/write, and temperature. Since my server is just an old laptop, keeping an eye on temperatures is crucial. This was really useful when I was testing Ollama with Gemma 2B—the laptop got super hot, which showed me that I need to be careful with heavy AI tasks on this hardware.
 
-### Glances
+### Uptime Kuma (Uptime Checker)
+Uptime Kuma continually pings my services to make sure they are responding. It helped me catch:
+- Apps that didn't start up automatically after the server rebooted.
+- DNS or reverse proxy config issues.
+- Containers that were technically "running" according to Docker, but actually locked up and returning error codes.
 
-Glances provides host-level visibility:
+### Telegram Alerts
+I set up a Telegram bot that pings my phone whenever Uptime Kuma detects a service is down. It's simple, free, and I don't have to check a dashboard manually to know if something is broken.
 
-- CPU usage
-- memory pressure
-- process activity
-- load averages
-- thermal behavior
+---
 
-This became especially useful during local inference experiments with Ollama and Gemma 2B, where temperature spikes made it obvious that experimental workloads needed tighter operational boundaries than the core services.
+## Common Failures I've Seen
 
-### Uptime Kuma
+- **Reboot issues:** Containers not starting because I forgot to set a restart policy.
+- **Reverse proxy breaks:** Messing up an Nginx config or dynamic DNS update, causing my URLs to point to the wrong port.
+- **Storage hiccups:** Changing a path on the host and breaking the mounts inside the containers.
 
-Uptime Kuma handles active checks for internal and public endpoints. It helped catch:
+Usually, when I update the server, things look like they are working at first. Uptime Kuma and Telegram alerts are how I find out that something actually broke ten minutes later.
 
-- services that failed after reboot
-- proxy misroutes
-- tunnel or DNS regressions
-- containers that were technically running but not serving correctly
+---
 
-### Telegram Alerting
+## What I Learned
+- Having a nice dashboard is cool, but real alerts that ping your phone are what save you.
+- When hosting on consumer hardware (especially an old laptop), you *must* monitor temperatures.
+- Simple, manual checks don't scale. Setting up automated monitoring early makes self-hosting way less stressful.
 
-Telegram was used as a lightweight alert destination. It is simple enough to keep and fast enough to matter. A small shell script posts failures or status events to a bot endpoint, avoiding the need for a heavier paging system.
+---
 
-## Failure Modes Observed
-
-The monitored failures were mostly operational:
-
-- containers stopping after reboot because restart behavior was incomplete
-- application URLs changing after proxy or DNS edits
-- storage refactors breaking expected mount points
-- tunnel routing errors returning the wrong response or no response
-
-Monitoring mattered because these problems were often discovered after a change that looked successful at first.
-
-## Operational Lessons
-
-- a dashboard is useful, but checks and alerts are what close the loop
-- host metrics are essential when experimenting on old hardware
-- restart policies are part of operations, not just convenience
-- small systems still need visibility because manual checking does not scale well over time
-
-## Next Improvements
-
-- add disk usage and filesystem saturation alerts
-- check media-library update freshness, not only HTTP availability
-- separate experimental workloads from always-on services more clearly
+## Future Ideas
+- Set up automated alerts for low disk space.
+- Write a script to alert me if my media folders stop updating.
+- Keep resource-heavy AI experiments isolated so they don't crash my media server.

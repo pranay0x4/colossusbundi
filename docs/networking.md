@@ -1,69 +1,62 @@
-# Networking
+# Networking & Remote Access
 
-## Baseline Setup
+## Fixing Wi-Fi on a Minimal Install
 
-The platform began on a minimal Ubuntu Server install on an old laptop. Networking was not ready out of the box. Wi-Fi tools were missing, and the first usable connection came from Android USB tethering just to get package access and fix the host properly.
+I installed the minimal version of Ubuntu Server on an old laptop, but it didn't come with any wireless tools. Since I didn't have an ethernet cable handy, I had to plug in my Android phone and use USB tethering to share my phone's internet with the laptop. 
 
-The eventual approach was:
+Once I got online, I followed these steps to get Wi-Fi working permanently:
+1. Installed `NetworkManager` and wireless utilities.
+2. Edited my Netplan configuration (`/etc/netplan/`) to make NetworkManager the renderer instead of systemd-networkd.
+3. Disabled the conflicting systemd-networkd services.
+4. Used `nmcli` in the terminal to connect to my home Wi-Fi network.
 
-1. install `NetworkManager` and required wireless utilities
-2. change the Netplan renderer so NetworkManager owned the interface
-3. disable conflicting `systemd-networkd` behavior where needed
-4. use `nmcli` to manage the wireless connection from the terminal
+This fixed the "unmanaged interface" error and let me place the laptop in a closet out of sight.
 
-That sequence solved the early `unmanaged` interface issue and established a predictable headless workflow.
+---
 
-## Headless Administration
+## Headless Laptop Struggles
 
-The laptop ran as a TTY-based server rather than a graphical desktop. That created a few practical constraints:
+Since this is an old laptop running as a server, it doesn't have a desktop graphical interface (GUI)—it's just a text TTY console. I ran into two big issues here:
+- **Sleep on lid close:** By default, laptops go to sleep when you close them. I had to configure systemd's `logind.conf` to ignore lid-close switches, otherwise my remote connection would die as soon as I closed the laptop.
+- **X11 commands failing:** I tried running some utility scripts that assumed a GUI was running (checking for things like `DISPLAY=:0`). I had to modify them to use lower-level terminal and framebuffer commands instead.
 
-- `xset` and `DISPLAY=:0` assumptions were invalid because there was no X session
-- lid-close suspend had to be disabled to keep the machine reachable remotely
-- display blanking had to be handled through lower-level framebuffer or login manager behavior
+---
 
-The key lesson was simple: if a headless machine suspends, remote administration ends immediately. Reliability mattered more than perfect power saving.
+## My Remote Access Setup
 
-## Remote Access Model
+To manage the server when I'm away from home, I set up a couple of tools:
+- **SSH:** For basic terminal access.
+- **Tailscale:** A zero-config VPN. It gives my server a static, private IP address that I can connect to from my phone or main laptop from anywhere, even when I'm on public Wi-Fi or cellular data. It saved me from having to configure port forwarding or dynamic DNS for admin tasks.
 
-Private administration used:
+---
 
-- SSH for shell access
-- Tailscale for reliable connectivity across networks
+## Testing WireGuard (VPN Learning Experience)
 
-Tailscale was the default operational path because it reduced friction. It avoided router changes, gave a stable private address, and made remote SSH workable from a phone or laptop.
+Just to learn how VPNs work at a lower level, I set up a raw WireGuard connection manually. It was a headache to debug, but I learned a few useful patterns:
+- **Interface vs. Peer state:** Just because the interface says it's "up" doesn't mean you have a handshake with your peer.
+- **Watch out for `SaveConfig=true`:** This setting in WireGuard automatically overwrites your configuration file with whatever is currently in memory when the interface shuts down. If you make a manual edit to the file and restart the VPN, it gets wiped out! Removing this line made debugging much easier.
+- **Key mismatches:** A tiny copy-paste error with the public or private keys will cause silent failures. Sometimes it's just faster to delete the config files and generate new keys from scratch than to squint at key strings.
 
-## WireGuard Experimentation
+---
 
-WireGuard was configured separately as a learning exercise and as a fallback remote access method. The process exposed several useful debugging patterns:
+## Dealing with Carrier-Grade NAT (CGNAT)
 
-- check interface state separately from peer state
-- validate key pairs before changing routing assumptions
-- distrust copied configs if runtime state does not match disk state
-- rebuild from scratch when configuration drift becomes harder to reason about than clean recreation
+I wanted to host a few public web pages, but my home ISP uses CGNAT. This means my home router doesn't get a public IP address—instead, it shares a public IP with other houses. Because of this, traditional router port forwarding is completely blocked.
 
-One specific issue was `SaveConfig=true`, which kept overwriting edited configuration state and made debugging misleading. Removing that, rebuilding the tunnel, and recreating keys cleanly resolved a large part of the confusion. A later handshake issue was traced to bad key material and was fixed by regenerating the peer configuration.
+Rather than trying to buy a static public IP from my ISP, I bypassed it by using **Cloudflare Tunnel** for public access, and **Tailscale** for private access. Both tools work by making outbound connections from the server, which completely bypasses the CGNAT barrier.
 
-## CGNAT Reality
+---
 
-Direct public exposure was limited by carrier-grade NAT. Even with correct local configuration, inbound connectivity was unreliable because the ISP controlled the actual public edge.
+## DNS & Subdomains
 
-This was an important design constraint, not just a networking annoyance. It forced a shift from "open ports and forward traffic" to "use overlay and tunnel-based access methods."
+To make my local services easy to access, I did some experiments:
+- **Nginx Proxy Manager:** Acts as my internal router. It takes incoming HTTP traffic and forwards it to the correct Docker container ports.
+- **Cloudflare DNS:** Manages my domain and routes public traffic through the Cloudflare Tunnel to the proxy.
+- **Tailscale MagicDNS:** Automatically resolves my server's hostname when I'm connected to the VPN.
 
-## DNS and Local Naming
+---
 
-There were small experiments with local naming and host file overrides to make services easier to remember. This helped during reverse proxy bring-up, but it also highlighted the limits of ad hoc local DNS when the network environment is already fragile.
-
-The stable choices ended up being:
-
-- Tailscale for private reachability
-- Cloudflare DNS and Tunnel for selected public exposure
-- Nginx Proxy Manager for service routing behind those access layers
-
-## Why This Matters
-
-This project demonstrates networking as an operational discipline:
-
-- bring a host online under imperfect conditions
-- choose tools that fit consumer network constraints
-- debug interfaces, routes, keys, and naming step by step
-- prefer maintainable access paths over brittle one-off fixes
+## What I Learned
+- Getting a server online under messy conditions (like USB tethering over a phone) is a useful skill.
+- Understand the limits of your hardware and ISP before you start configuring things.
+- Choose access methods that are secure and bypass network restrictions (like tunnels and overlay VPNs) rather than opening random ports on your home router.

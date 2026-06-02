@@ -1,29 +1,27 @@
 # ColossusBundi
 
-ColossusBundi is a self-hosted personal cloud and automation platform built and operated by student engineer, pursuing undergrad at IIT DELHI. It started on an old Windows laptop during some free time over summers and gradually turned into a practical systems project for learning infrastructure design, remote operations, networking, service automation, and observability under real constraints.
+ColossusBundi is my self-hosted personal cloud and home server setup. I'm an undergrad student at IIT Delhi, and I started this project during my summer break using an old Windows laptop I had lying around. What started as a fun way to pass the time turned into a hands-on project for learning Linux systems, networking, Docker, and monitoring under real constraints.
 
-The project is intentionally small and hands-on. The value is not in claiming scale; it is in showing the ability to take a machine from bare-metal installation to a remotely administered, monitored, service-hosting platform with repeatable configuration, persistent storage, and documented operational tradeoffs.
+This isn't meant to be some massive enterprise-scale platform. I just wanted to see if I could take a raw laptop, install Ubuntu Server, and build a secure, remotely accessible media and automation setup that actually runs reliably.
 
+### What it does:
+- **My own media server:** Streams movies and shows automatically.
+- **Remote access from anywhere:** I can SSH or access my services securely even when I'm away from home.
+- **Bypasses CGNAT:** My ISP doesn't give me a public IP, but I found a way to host public services anyway.
+- **Monitoring & Alerts:** Pings my Telegram if something goes down or if the laptop gets too hot.
+- **AI Chatbot Ops:** I can trigger diagnostics and check server status using a Telegram bot powered by OpenCode CLI and OpenRouter.
 
-Key outcomes summarized:
-- Self-hosted personal cloud
-- Secure remote administration from anywhere
-- Automated media delivery workflow
-- Public service exposure despite CGNAT
-- Monitoring and alerting
-- AI-assisted infrastructure workflows through Telegram and OpenCode CLI
-- Hands-on networking and infrastructure experience
+---
 
 ## Overview
 
-The platform combines three main concerns:
+My setup does a few main things:
+1. **Server & OS:** Runs headless Ubuntu Server on an old laptop.
+2. **Services:** Docker Compose manages my containers (Jellyfin, Sonarr, Radarr, etc.).
+3. **Networking:** SSH and Tailscale for private access, Cloudflare Tunnel for public access, and Nginx Proxy Manager for clean local URLs.
+4. **AI Assistant:** OpenCode CLI is installed on the server and hooked up to a Telegram bot. If something breaks or if I want to run a quick diagnostic, I can chat with it on Telegram and it will look at my Docker logs or run safe commands.
 
-- infrastructure and remote access for a headless Ubuntu host
-- service orchestration for a personal cloud and automation stack
-- operational tooling for uptime visibility, alerting, and debugging
-- an AI-assisted operations layer for diagnostics, maintenance, and remote workflows
-
-The host runs Docker Compose workloads for media-serving, request automation, dashboards, monitoring, and AI-assisted operations. Remote administration is handled through SSH and Tailscale, while Cloudflare Tunnel is used to expose selected services publicly without direct port forwarding. Nginx Proxy Manager provides internal routing and simpler hostname management. OpenCode CLI on the Ubuntu server connects to OpenRouter APIs and acts as an infrastructure assistant for alert triage, diagnostics, maintenance tasks, and remote operational workflows through Telegram.
+---
 
 ## Architecture
 
@@ -39,7 +37,7 @@ flowchart LR
     tail --> host[Ubuntu Laptop Server]
     tunnel --> npm[Nginx Proxy Manager]
     host --> npm
-
+    
     subgraph Services
         home[Homepage]
         kuma[Uptime Kuma]
@@ -72,86 +70,93 @@ flowchart LR
     host --> opencode
 ```
 
-More detail is in [architecture/architecture.mmd](/Users/pranay/colossusbundi/architecture/architecture.mmd) and [docs/media-pipeline.md](/Users/pranay/colossusbundi/docs/media-pipeline.md).
+More details can be found in the [architecture folder](architecture/) and the [docs](docs/) directory.
 
-The architecture now also includes an AI-assisted operations path:
-
+My AI-assisted operations path goes like this:
 `Admin -> Telegram -> OpenCode Agent -> OpenRouter -> Ubuntu Server -> Infrastructure`
 
-## Key Features
+---
 
-- Headless Ubuntu server installation and recovery on consumer hardware
-- Remote administration through SSH, Tailscale, and Cloudflare Tunnel
-- Containerized service layout split by function: infrastructure, media, and monitoring
-- Persistent data model using `/opt` for service config and `/mnt` for durable media/data
-- Reverse proxy routing with private hostnames and public tunnel-backed exposure
-- Monitoring with Uptime Kuma, Glances, Homepage, and Telegram alerts
-- AI-assisted operations through OpenCode CLI, OpenRouter, and Telegram-driven diagnostics
-- Troubleshooting records covering Wi-Fi setup, LVM expansion, WireGuard debugging, CGNAT, and Docker persistence
+## How I Built It & Key Features
 
-## Technology Stack
+- **Headless Laptop Server:** Set up Ubuntu Server on an old laptop and made sure it doesn't suspend when the lid is closed.
+- **Secure Remote Access:** Configured Tailscale so I can access the server securely from anywhere, plus a Cloudflare Tunnel for public URLs.
+- **Docker Container Setup:** Organized everything into Docker Compose stacks: `infrastructure.yml`, `media-stack.yml`, and `monitoring.yml`.
+- **Clean Storage Layout:** I learned the hard way to separate data and configs. Now, all service configs live in `/opt` and my actual media/downloads are on `/mnt`.
+- **Local DNS & Reverse Proxy:** Set up Nginx Proxy Manager to map easy-to-remember domain names to different Docker ports.
+- **Dashboard & Monitoring:** Uptime Kuma checks if services are running, Glances tracks system resources, and Telegram alerts ping my phone if something breaks.
+- **Telegram AI Operator:** Set up a Telegram bot running OpenCode CLI and OpenRouter APIs so I can debug issues or check server health directly from my phone.
 
-- OS and base system: Ubuntu Server, Linux, systemd, LVM
-- Networking: SSH, Tailscale, WireGuard, Cloudflare DNS, Cloudflare Tunnel
-- Reverse proxy and access: Nginx Proxy Manager
-- Orchestration: Docker Compose
-- Media and request automation: Jellyfin, Jellyseerr, Sonarr, Radarr, Prowlarr, qBittorrent
-- Monitoring and operations: Homepage, Glances, Uptime Kuma, Telegram alerting
-- AI operations: OpenCode CLI, OpenRouter APIs, Telegram-based admin workflows
-- Experiments: Ollama, Gemma 2B local inference
+---
+
+## Tech Stack
+
+- **OS:** Ubuntu Server, systemd, LVM
+- **Networking & VPN:** SSH, Tailscale, WireGuard, Cloudflare Tunnel, Cloudflare DNS
+- **Reverse Proxy:** Nginx Proxy Manager
+- **Containers:** Docker & Docker Compose
+- **Media Stack:** Jellyfin, Jellyseerr, Sonarr, Radarr, Prowlarr, qBittorrent
+- **Monitoring:** Homepage (dashboard), Glances, Uptime Kuma, Telegram Bot API
+- **AI integration:** OpenCode CLI (via OpenRouter APIs), Ollama + Gemma 2B (for local AI tests)
+
+---
 
 ## Networking & Remote Access
 
-One of the most useful parts of the project was learning how to operate a machine that was not always physically accessible. Initial setup required fixing Wi-Fi on a minimal Ubuntu installation, moving from temporary USB tethering to proper NetworkManager control, and handling a headless laptop that could not be allowed to suspend on lid close.
+Operating a server you can't physically touch is a challenge. Right from the start, I had to fix the Wi-Fi on a minimal Ubuntu installation. Since the wireless packages weren't installed, I had to tether my Android phone via USB just to download NetworkManager and get the wireless card working. I also had to configure the system so the laptop wouldn't go to sleep when I closed the lid.
 
-For private management, Tailscale became the most reliable path for SSH and day-to-day administration. WireGuard was tested directly as a way to understand the lower-level VPN workflow, including peer definitions, key handling, interface state, and handshake debugging. Public exposure ran into CGNAT constraints, so Cloudflare Tunnel became the practical answer for HTTPS-backed access without router port forwarding.
+For day-to-day work, Tailscale has been a lifesaver. It lets me SSH into the server securely from my phone or main computer without opening ports. I also set up a raw WireGuard connection manually just to learn how VPN peers, handshakes, and public/private key routing work. 
+
+To expose my media request page (Jellyseerr) to the web, I ran into carrier-grade NAT (CGNAT) because my home router doesn't get a public IP. I solved this by using a Cloudflare Tunnel, which forwards public HTTPS traffic to my local proxy without needing port forwarding at all.
+
+---
 
 ## Monitoring & Operations
 
-The repository is designed to show operational ownership, not just service installation. Monitoring is split into service visibility, host visibility, and alerting:
+I wanted to make sure my server stays up, so I built a simple monitoring setup instead of manually checking things. Here's what I'm using:
+- **Uptime Kuma:** Pings my local and public services to make sure they're actually responding.
+- **Glances:** Keeps an eye on CPU, RAM, and temperature (which is super important on an old laptop).
+- **Homepage:** A nice, clean dashboard that shows the status of all my services in one place.
+- **Telegram Alerts:** Pings my phone if a service goes down or if the server reboots.
 
-- Uptime Kuma checks internal and public service availability
-- Glances tracks host-level CPU, memory, load, and thermal behavior
-- Homepage gives a single operational entrypoint for links and status
-- Telegram alerting provides low-friction notifications for failures
+This setup saved me a bunch of times when my containers failed to start after a reboot, or when I messed up a DNS record while messing with the reverse proxy.
 
-This combination made it easier to catch basic failure modes such as containers not auto-starting after reboot, services breaking after storage refactors, and reverse proxy issues during hostname or DNS changes.
+---
 
-## AI-Assisted Operations Layer
+## AI-Assisted Operations
 
-ColossusBundi now includes OpenCode CLI running on the Ubuntu server and connected to OpenRouter APIs. This is not a user-facing chatbot. It is an AI-assisted operations layer used to support infrastructure management, incident handling, and routine maintenance.
+I also added an AI assistant to help me manage the server. I run OpenCode CLI on the laptop, which connects to OpenRouter. It's not a generic chatbot—it's customized to help me maintain this system.
 
-Current capabilities include:
+Here's how I use it:
+- It looks at my server status and docker logs to help diagnose problems.
+- It can explain error logs in plain English and suggest fixes.
+- It runs safe commands on the server if I approve them.
+- I can talk to it directly through a private Telegram bot.
 
-- receiving infrastructure context from the server
-- analyzing monitoring alerts and system issues
-- investigating logs and configuration problems
-- explaining likely root causes in plain English
-- suggesting remediation steps
-- executing approved commands on the server
-- assisting with Docker, service management, deployment, and updates
-- generating operational summaries
-- continuing long-running server-side tasks even when the admin workstation is offline
+If I get a Telegram alert that a service is down while I'm in class, I can just ask the bot to check the logs and restart the container right from Telegram, without needing to open a full terminal or Tailscale connection.
 
-Telegram is the primary operations interface. Alerts, diagnostics, status checks, and remote admin workflows can be handled from a mobile device without exposing direct shell access as the first interface. In practice, this adds a lightweight operational control plane on top of the existing monitoring and remote access stack rather than replacing SSH, Tailscale, or standard debugging workflows.
+---
 
-## Engineering Challenges & Lessons Learned
+## What I Learned & Things That Broke
 
-- CGNAT blocked straightforward inbound networking. The workaround was to stop fighting port forwarding and move public exposure to Cloudflare Tunnel.
-- WireGuard debugging took multiple iterations. A misleading `SaveConfig=true` setting and bad key state caused configuration drift until the tunnel was rebuilt cleanly.
-- Docker persistence was fragile early on because config and data paths were not separated clearly. Refactoring into `/opt` and `/mnt` made service rebuilds predictable.
-- Reverse proxy setup was easy to get mostly working and harder to make consistent. Internal hostnames, DNS overrides, and service-specific assumptions all had to line up.
-- Headless Linux administration on a laptop required dealing with lid-close behavior, display blanking, TTY-only operation, and the reality that a suspended machine cannot be recovered remotely.
+- **Don't fight CGNAT:** I spent way too much time trying to configure port forwarding before realizing my ISP blocks incoming connections. Switched to Cloudflare Tunnel and it worked instantly.
+- **Watch out for `SaveConfig=true` in WireGuard:** This setting kept overwriting my manual edits, which caused silent failures. I ended up wiping the setup and rebuilding the VPN configuration from scratch to fix it.
+- **Structure your Docker volumes early:** I initially mixed configuration files and actual media downloads in random folders, which made updating containers a nightmare. Moving configurations to `/opt` and media to `/mnt` solved this.
+- **Laptops are tricky servers:** I had to manually edit systemd configuration files to prevent the laptop from going to sleep when the lid was closed. If it goes to sleep, there's no way to wake it up remotely!
 
-These are covered in more detail in [docs/networking.md](/Users/pranay/colossusbundi/docs/networking.md), [docs/cloudflare-tunnel.md](/Users/pranay/colossusbundi/docs/cloudflare-tunnel.md), [docs/monitoring.md](/Users/pranay/colossusbundi/docs/monitoring.md), and [docs/lessons-learned.md](/Users/pranay/colossusbundi/docs/lessons-learned.md).
+I wrote down detailed notes on how I fixed these issues in the docs:
+- [Networking setup & issues](docs/networking.md)
+- [Cloudflare Tunnel config](docs/cloudflare-tunnel.md)
+- [Monitoring & alerting](docs/monitoring.md)
+- [My full list of lessons learned](docs/learnings.md)
 
-## Future Roadmap
+---
 
-- Add configuration backups and restore testing for `/opt` and Compose files
-- Add cleaner secret management for tokens, API keys, and tunnel credentials
-- Replace ad hoc local DNS experiments with a more durable internal naming approach
-- Document recovery runbooks for host replacement or disk migration
-- Expand monitoring with disk-usage alerts and container-level log shipping
-- Keep local inference experiments isolated so they do not impact core platform stability
+## What's Next?
+- Set up automated backups for my `/opt` configs and docker-compose files.
+- Move API keys and tokens out of plain text into a proper secrets manager.
+- Set up disk-space alerts so the laptop drive doesn't fill up unexpectedly.
+- Write a quick recovery guide in case the laptop hardware dies.
+- Keep local AI tests (like Ollama) isolated so they don't crash my media server.
 
-ColossusBundi is best read as a working lab notebook turned into an infrastructure portfolio repository: a small but real system that had to be installed, debugged, reorganized, exposed safely, and kept running.
+This project is basically my digital playground and lab notebook. It's a small system, but keeping it running, secure, and properly monitored has taught me more about real-world systems than any textbook.
